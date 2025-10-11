@@ -80,9 +80,9 @@ class VejbyTisvildeVandApi:
             raise VejbyTisvildeVandApiError(f"Connection error: {err}") from err
 
     async def get_device_usage(
-        self, device_ids: list[str], start_date: datetime, end_date: datetime
+        self, device_ids: list[str], start_date: datetime, end_date: datetime, interval: str = "Hourly"
     ) -> dict[str, Any]:
-        """Get device usage data for a period."""
+        """Get device usage data for a period with specified interval granularity."""
         if not self._token:
             await self.authenticate()
 
@@ -95,7 +95,7 @@ class VejbyTisvildeVandApi:
                         "DeviceIds": device_ids,
                         "QuantityType": "WaterVolume",  # Singular!
                         "Unit": "KubicMeter",
-                        "Interval": "Hourly",
+                        "Interval": interval,
                         "From": start_date.isoformat(),
                         "To": end_date.isoformat(),
                     },
@@ -111,7 +111,7 @@ class VejbyTisvildeVandApi:
                             "DeviceIds": device_ids,
                             "QuantityType": "WaterVolume",  # Singular!
                             "Unit": "KubicMeter",
-                            "Interval": "Hourly",
+                            "Interval": interval,
                             "From": start_date.isoformat(),
                             "To": end_date.isoformat(),
                         },
@@ -126,11 +126,11 @@ class VejbyTisvildeVandApi:
 
     async def get_daily_usage(self, device_ids: list[str]) -> dict[str, float]:
         """Get daily usage for devices (today's consumption in cubic meters)."""
-        # Get usage from start of today until now
+        # Get usage from start of today until now with hourly granularity
         now = datetime.now()
         start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
-        usage_data = await self.get_device_usage(device_ids, start_of_day, now)
+        usage_data = await self.get_device_usage(device_ids, start_of_day, now, interval="Hourly")
 
         # The API returns a single response with TotalUsage field
         # Response format: {"Unit": "KubicMeter", "QuantityType": "WaterVolume", "TotalUsage": 0.145, ...}
@@ -146,6 +146,46 @@ class VejbyTisvildeVandApi:
                 daily_usage[device_ids[0]] = float(total) if total else 0.0
 
         return daily_usage
+
+    async def get_monthly_usage(self, device_ids: list[str]) -> dict[str, float]:
+        """Get monthly usage for devices (this month's consumption in cubic meters)."""
+        # Get usage from start of this month until now with daily granularity (more efficient)
+        now = datetime.now()
+        start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+        usage_data = await self.get_device_usage(device_ids, start_of_month, now, interval="Daily")
+
+        # The API returns a single response with TotalUsage field
+        monthly_usage = {}
+
+        if isinstance(usage_data, dict):
+            total = usage_data.get("TotalUsage", 0.0)
+
+            # Assign this total to the first device ID (assuming single device response)
+            if device_ids:
+                monthly_usage[device_ids[0]] = float(total) if total else 0.0
+
+        return monthly_usage
+
+    async def get_yearly_usage(self, device_ids: list[str]) -> dict[str, float]:
+        """Get yearly usage for devices (year-to-date consumption in cubic meters)."""
+        # Get usage from start of this year until now with monthly granularity (more efficient)
+        now = datetime.now()
+        start_of_year = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+
+        usage_data = await self.get_device_usage(device_ids, start_of_year, now, interval="Monthly")
+
+        # The API returns a single response with TotalUsage field
+        yearly_usage = {}
+
+        if isinstance(usage_data, dict):
+            total = usage_data.get("TotalUsage", 0.0)
+
+            # Assign this total to the first device ID (assuming single device response)
+            if device_ids:
+                yearly_usage[device_ids[0]] = float(total) if total else 0.0
+
+        return yearly_usage
 
     async def get_latest_readings(self, device_ids: list[str]) -> dict[str, Any]:
         """Get the latest readings for devices."""

@@ -102,15 +102,19 @@ class VejbyTisvildeVandDataUpdateCoordinator(DataUpdateCoordinator):
                 _LOGGER.warning("No devices found for customer")
                 return {"devices": [], "daily_usage": {}}
 
-            # Get daily usage for all devices
+            # Get usage data for all devices
             daily_usage = await self.api.get_daily_usage(self.device_ids)
+            monthly_usage = await self.api.get_monthly_usage(self.device_ids)
+            yearly_usage = await self.api.get_yearly_usage(self.device_ids)
 
-            # Note: We skip get_latest_readings() as it's not needed for daily consumption
+            # Note: We skip get_latest_readings() as it's not needed for consumption sensors
             # and may require different parameters than the usage endpoint
 
             return {
                 "devices": devices,
                 "daily_usage": daily_usage,
+                "monthly_usage": monthly_usage,
+                "yearly_usage": yearly_usage,
                 "customer_data": self.customer_data,
             }
 

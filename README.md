@@ -41,6 +41,8 @@ The integration will automatically discover your devices and create sensors for 
 
 ## Sensors
 
+The integration creates three sensors for each water meter:
+
 ### Daily Consumption Sensor
 
 - **Entity ID**: `sensor.{location}_{device}_daily_consumption`
@@ -49,13 +51,38 @@ The integration will automatically discover your devices and create sensors for 
 - **State Class**: Total Increasing
 - **Update Interval**: 30 minutes
 
-The sensor shows water consumption from midnight (00:00) until the current time, updated every 30 minutes.
+Shows water consumption from midnight (00:00) until the current time.
 
-**Example**: If the sensor shows `0.145`, this means 0.145 m³ (145 liters) have been consumed today.
+**Example**: `0.145` means 0.145 m³ (145 liters) consumed today.
 
-**Attributes**:
+### Monthly Consumption Sensor
+
+- **Entity ID**: `sensor.{location}_{device}_monthly_consumption`
+- **Unit**: Cubic meters (m³)
+- **Device Class**: Water
+- **State Class**: Total Increasing
+- **Update Interval**: 30 minutes
+
+Shows water consumption from the 1st of the current month until now.
+
+**Example**: `3.456` means 3.456 m³ (3,456 liters) consumed this month.
+
+### Yearly Consumption Sensor (Year-to-Date)
+
+- **Entity ID**: `sensor.{location}_{device}_yearly_consumption`
+- **Unit**: Cubic meters (m³)
+- **Device Class**: Water
+- **State Class**: Total Increasing
+- **Update Interval**: 30 minutes
+
+Shows water consumption from January 1st until now.
+
+**Example**: `42.789` means 42.789 m³ (42,789 liters) consumed this year.
+
+**Common Attributes** (all sensors):
 - `device_id`: The unique device identifier
 - `location`: Location name
+- `device_type`: Type of water meter
 
 ## Example Usage
 
