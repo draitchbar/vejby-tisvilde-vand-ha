@@ -91,8 +91,7 @@ class VejbyTisvildeVandDataUpdateCoordinator(DataUpdateCoordinator):
                     if device_id:
                         devices.append({
                             "id": device_id,
-                            "name": device.get("BrandName", "Unknown Device"),
-                            "location_name": location.get("Name", "Unknown Location"),
+                            "location_name": location.get("Address", "Unknown Address"),
                             "type": device.get("DeviceType", "WaterMeter"),
                         })
 
