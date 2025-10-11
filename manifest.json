@@ -1,0 +1,11 @@
+{
+  "domain": "vejby_tisvilde_vand",
+  "name": "Vejby Tisvilde Vand",
+  "codeowners": ["@draitchbar"],
+  "config_flow": true,
+  "documentation": "https://github.com/draitchbar/vejby-tisvilde-vand",
+  "integration_type": "hub",
+  "iot_class": "cloud_polling",
+  "requirements": [],
+  "version": "1.0.0"
+}
