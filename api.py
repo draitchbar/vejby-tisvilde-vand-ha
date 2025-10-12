@@ -1,7 +1,8 @@
 """API client for Vejby Tisvilde Vand."""
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import aiohttp
 import async_timeout
@@ -22,12 +23,13 @@ class VejbyTisvildeVandAuthError(VejbyTisvildeVandApiError):
 class VejbyTisvildeVandApi:
     """API client for Vejby Tisvilde Vand."""
 
-    def __init__(self, session: aiohttp.ClientSession, email: str, password: str):
+    def __init__(self, session: aiohttp.ClientSession, email: str, password: str, timezone: str = "UTC"):
         """Initialize the API client."""
         self._session = session
         self._email = email
         self._password = password
         self._token = None
+        self._timezone = ZoneInfo(timezone)
 
     async def authenticate(self) -> bool:
         """Authenticate with the API."""
@@ -88,6 +90,10 @@ class VejbyTisvildeVandApi:
 
         try:
             async with async_timeout.timeout(API_TIMEOUT):
+                # Convert timezone-aware datetimes to UTC for the API
+                start_utc = start_date.astimezone(timezone.utc)
+                end_utc = end_date.astimezone(timezone.utc)
+
                 response = await self._session.post(
                     f"{API_BASE_URL}/api/Stats/usage/devices",
                     headers={"Authorization": f"Bearer {self._token}"},
@@ -96,8 +102,8 @@ class VejbyTisvildeVandApi:
                         "QuantityType": "WaterVolume",  # Singular!
                         "Unit": "KubicMeter",
                         "Interval": interval,
-                        "From": start_date.isoformat(),
-                        "To": end_date.isoformat(),
+                        "From": start_utc.isoformat(),
+                        "To": end_utc.isoformat(),
                     },
                 )
 
@@ -112,8 +118,8 @@ class VejbyTisvildeVandApi:
                             "QuantityType": "WaterVolume",  # Singular!
                             "Unit": "KubicMeter",
                             "Interval": interval,
-                            "From": start_date.isoformat(),
-                            "To": end_date.isoformat(),
+                            "From": start_utc.isoformat(),
+                            "To": end_utc.isoformat(),
                         },
                     )
 
@@ -126,8 +132,8 @@ class VejbyTisvildeVandApi:
 
     async def get_daily_usage(self, device_ids: list[str]) -> dict[str, float]:
         """Get daily usage for devices (today's consumption in cubic meters)."""
-        # Get usage from start of today until now with hourly granularity
-        now = datetime.now()
+        # Get usage from start of today until now with hourly granularity (in local timezone)
+        now = datetime.now(self._timezone)
         start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
         usage_data = await self.get_device_usage(device_ids, start_of_day, now, interval="Hourly")
@@ -147,10 +153,32 @@ class VejbyTisvildeVandApi:
 
         return daily_usage
 
+    async def get_yesterday_usage(self, device_ids: list[str]) -> dict[str, float]:
+        """Get yesterday's usage for devices (yesterday's consumption in cubic meters)."""
+        # Get usage for the entire previous day (in local timezone)
+        now = datetime.now(self._timezone)
+        yesterday = now - timedelta(days=1)
+        start_of_yesterday = yesterday.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_of_yesterday = yesterday.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+        usage_data = await self.get_device_usage(device_ids, start_of_yesterday, end_of_yesterday, interval="Hourly")
+
+        # The API returns a single response with TotalUsage field
+        yesterday_usage = {}
+
+        if isinstance(usage_data, dict):
+            total = usage_data.get("TotalUsage", 0.0)
+
+            # Assign this total to the first device ID (assuming single device response)
+            if device_ids:
+                yesterday_usage[device_ids[0]] = float(total) if total else 0.0
+
+        return yesterday_usage
+
     async def get_monthly_usage(self, device_ids: list[str]) -> dict[str, float]:
         """Get monthly usage for devices (this month's consumption in cubic meters)."""
-        # Get usage from start of this month until now with daily granularity (more efficient)
-        now = datetime.now()
+        # Get usage from start of this month until now with daily granularity (more efficient, in local timezone)
+        now = datetime.now(self._timezone)
         start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
         usage_data = await self.get_device_usage(device_ids, start_of_month, now, interval="Daily")
@@ -169,8 +197,8 @@ class VejbyTisvildeVandApi:
 
     async def get_yearly_usage(self, device_ids: list[str]) -> dict[str, float]:
         """Get yearly usage for devices (year-to-date consumption in cubic meters)."""
-        # Get usage from start of this year until now with monthly granularity (more efficient)
-        now = datetime.now()
+        # Get usage from start of this year until now with monthly granularity (more efficient, in local timezone)
+        now = datetime.now(self._timezone)
         start_of_year = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
 
         usage_data = await self.get_device_usage(device_ids, start_of_year, now, interval="Monthly")

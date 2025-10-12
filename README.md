@@ -41,7 +41,7 @@ The integration will automatically discover your devices and create sensors for 
 
 ## Sensors
 
-The integration creates three sensors for each water meter:
+The integration creates four sensors for each water meter:
 
 ### Daily Consumption Sensor
 
@@ -54,6 +54,18 @@ The integration creates three sensors for each water meter:
 Shows water consumption from midnight (00:00) until the current time.
 
 **Example**: `0.145` means 0.145 m³ (145 liters) consumed today.
+
+### Yesterday Consumption Sensor
+
+- **Entity ID**: `sensor.{location}_{device}_yesterday_consumption`
+- **Unit**: Cubic meters (m³)
+- **Device Class**: Water
+- **State Class**: Total Increasing
+- **Update Interval**: 30 minutes
+
+Shows water consumption for the entire previous day (yesterday 00:00 to 23:59).
+
+**Example**: `0.312` means 0.312 m³ (312 liters) consumed yesterday.
 
 ### Monthly Consumption Sensor
 

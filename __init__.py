@@ -19,10 +19,15 @@ PLATFORMS: list[Platform] = [Platform.SENSOR]
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Vejby Tisvilde Vand from a config entry."""
     session = async_get_clientsession(hass)
+
+    # Use Home Assistant's configured timezone
+    timezone = str(hass.config.time_zone)
+
     api = VejbyTisvildeVandApi(
         session,
         entry.data[CONF_EMAIL],
         entry.data[CONF_PASSWORD],
+        timezone,
     )
 
     # Authenticate on setup
@@ -103,6 +108,7 @@ class VejbyTisvildeVandDataUpdateCoordinator(DataUpdateCoordinator):
 
             # Get usage data for all devices
             daily_usage = await self.api.get_daily_usage(self.device_ids)
+            yesterday_usage = await self.api.get_yesterday_usage(self.device_ids)
             monthly_usage = await self.api.get_monthly_usage(self.device_ids)
             yearly_usage = await self.api.get_yearly_usage(self.device_ids)
 
@@ -112,6 +118,7 @@ class VejbyTisvildeVandDataUpdateCoordinator(DataUpdateCoordinator):
             return {
                 "devices": devices,
                 "daily_usage": daily_usage,
+                "yesterday_usage": yesterday_usage,
                 "monthly_usage": monthly_usage,
                 "yearly_usage": yearly_usage,
                 "customer_data": self.customer_data,
