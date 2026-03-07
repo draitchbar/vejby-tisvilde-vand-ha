@@ -80,9 +80,9 @@ class VejbyTisvildeVandDailyConsumptionSensor(
         device_name = device.get("name", "Water Meter")
 
         if location_name:
-            self._attr_name = f"{location_name} {device_name} Daily Consumption"
+            self._attr_name = f"{location_name} {device_name} Latest Consumption"
         else:
-            self._attr_name = f"{device_name} Daily Consumption"
+            self._attr_name = f"{device_name} Latest Consumption"
 
         # Device info for grouping in UI
         self._attr_device_info = {
@@ -137,7 +137,7 @@ class VejbyTisvildeVandYesterdayConsumptionSensor(
     """Representation of a Vejby Tisvilde Vand yesterday consumption sensor."""
 
     _attr_device_class = SensorDeviceClass.WATER
-    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+    _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = UnitOfVolume.CUBIC_METERS
 
     def __init__(
@@ -158,9 +158,9 @@ class VejbyTisvildeVandYesterdayConsumptionSensor(
         device_name = device.get("name", "Water Meter")
 
         if location_name:
-            self._attr_name = f"{location_name} {device_name} Yesterday Consumption"
+            self._attr_name = f"{location_name} {device_name} Daily Consumption"
         else:
-            self._attr_name = f"{device_name} Yesterday Consumption"
+            self._attr_name = f"{device_name} Daily Consumption"
 
         # Device info for grouping in UI
         self._attr_device_info = {
@@ -215,7 +215,7 @@ class VejbyTisvildeVandMonthlyConsumptionSensor(
     """Representation of a Vejby Tisvilde Vand monthly consumption sensor."""
 
     _attr_device_class = SensorDeviceClass.WATER
-    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+    _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = UnitOfVolume.CUBIC_METERS
 
     def __init__(
@@ -293,7 +293,7 @@ class VejbyTisvildeVandYearlyConsumptionSensor(
     """Representation of a Vejby Tisvilde Vand yearly consumption sensor."""
 
     _attr_device_class = SensorDeviceClass.WATER
-    _attr_state_class = SensorStateClass.TOTAL_INCREASING
+    _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = UnitOfVolume.CUBIC_METERS
 
     def __init__(
