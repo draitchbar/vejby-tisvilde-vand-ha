@@ -12,6 +12,8 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import VejbyTisvildeVandApi, VejbyTisvildeVandAuthError, VejbyTisvildeVandApiError
 from .const import DOMAIN
+from .date_ranges import TimezoneAwareDateRangeProvider
+from .http_client import AioHttpClient
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -27,7 +29,12 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
     """Validate the user input allows us to connect."""
     session = async_get_clientsession(hass)
     timezone = str(hass.config.time_zone)
-    api = VejbyTisvildeVandApi(session, data[CONF_EMAIL], data[CONF_PASSWORD], timezone)
+    api = VejbyTisvildeVandApi(
+        AioHttpClient(session),
+        data[CONF_EMAIL],
+        data[CONF_PASSWORD],
+        TimezoneAwareDateRangeProvider(timezone),
+    )
 
     # Attempt to authenticate
     await api.authenticate()

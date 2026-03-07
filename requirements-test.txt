@@ -1,0 +1,5 @@
+pytest
+pytest-asyncio
+python-dotenv
+aiohttp
+async-timeout

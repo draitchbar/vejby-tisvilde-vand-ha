@@ -14,5 +14,14 @@ build/
 *.swp
 *.swo
 
+# Claude
+.claude/
+
 # Home Assistant
 *.log
+
+# Testing
+.venv/
+.env
+tests/.pytest_cache/
+tests/__pycache__/

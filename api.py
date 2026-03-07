@@ -1,13 +1,11 @@
 """API client for Vejby Tisvilde Vand."""
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import timezone
 from typing import Any
-from zoneinfo import ZoneInfo
 
-import aiohttp
-import async_timeout
-
-from .const import API_BASE_URL, API_TIMEOUT
+from .const import API_BASE_URL
+from .date_ranges import DateRangeProvider, TimezoneAwareDateRangeProvider
+from .http_client import AioHttpClient, HttpClient, HttpError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -23,231 +21,121 @@ class VejbyTisvildeVandAuthError(VejbyTisvildeVandApiError):
 class VejbyTisvildeVandApi:
     """API client for Vejby Tisvilde Vand."""
 
-    def __init__(self, session: aiohttp.ClientSession, email: str, password: str, timezone: str = "UTC"):
-        """Initialize the API client."""
-        self._session = session
+    def __init__(
+        self,
+        http_client: HttpClient,
+        email: str,
+        password: str,
+        date_ranges: DateRangeProvider,
+    ) -> None:
+        self._http = http_client
         self._email = email
         self._password = password
-        self._token = None
-        self._timezone = ZoneInfo(timezone)
+        self._date_ranges = date_ranges
+        self._token: str | None = None
 
     async def authenticate(self) -> bool:
-        """Authenticate with the API."""
+        """Authenticate and store the Bearer token."""
         try:
-            async with async_timeout.timeout(API_TIMEOUT):
-                response = await self._session.post(
-                    f"{API_BASE_URL}/api/Customer/login",
-                    json={"email": self._email, "password": self._password},
-                )
+            data = await self._http.post(
+                f"{API_BASE_URL}/api/Customer/login",
+                json={"email": self._email, "password": self._password},
+            )
+            self._token = data.get("AuthToken")
+            return True
+        except HttpError as err:
+            if err.status_code == 401:
+                raise VejbyTisvildeVandAuthError("Invalid email or password") from err
+            raise VejbyTisvildeVandApiError(f"HTTP error {err.status_code}") from err
+        except Exception as err:
+            raise VejbyTisvildeVandApiError(f"Connection error: {err}") from err
 
-                if response.status == 401:
-                    raise VejbyTisvildeVandAuthError("Invalid email or password")
+    async def _request_get(self, url: str, params: dict | None = None) -> Any:
+        """GET with auth header; re-authenticates once on 401."""
+        if not self._token:
+            await self.authenticate()
+        try:
+            return await self._http.get(url, headers={"Authorization": f"Bearer {self._token}"}, params=params or {})
+        except HttpError as err:
+            if err.status_code == 401:
+                await self.authenticate()
+                try:
+                    return await self._http.get(url, headers={"Authorization": f"Bearer {self._token}"}, params=params or {})
+                except HttpError as retry_err:
+                    raise VejbyTisvildeVandApiError(f"HTTP error {retry_err.status_code}") from retry_err
+            raise VejbyTisvildeVandApiError(f"HTTP error {err.status_code}") from err
+        except Exception as err:
+            raise VejbyTisvildeVandApiError(f"Connection error: {err}") from err
 
-                response.raise_for_status()
-                data = await response.json()
-                self._token = data.get("AuthToken")
-                return True
-
-        except aiohttp.ClientError as err:
-            _LOGGER.error("Error authenticating with API: %s", err)
+    async def _request_post(self, url: str, json: dict) -> Any:
+        """POST with auth header; re-authenticates once on 401."""
+        if not self._token:
+            await self.authenticate()
+        try:
+            return await self._http.post(url, json=json, headers={"Authorization": f"Bearer {self._token}"})
+        except HttpError as err:
+            if err.status_code == 401:
+                await self.authenticate()
+                try:
+                    return await self._http.post(url, json=json, headers={"Authorization": f"Bearer {self._token}"})
+                except HttpError as retry_err:
+                    raise VejbyTisvildeVandApiError(f"HTTP error {retry_err.status_code}") from retry_err
+            raise VejbyTisvildeVandApiError(f"HTTP error {err.status_code}") from err
+        except Exception as err:
             raise VejbyTisvildeVandApiError(f"Connection error: {err}") from err
 
     async def get_customer_details(self, include_disabled_devices: bool = False) -> dict[str, Any]:
         """Get customer details including devices."""
-        if not self._token:
-            await self.authenticate()
-
-        try:
-            async with async_timeout.timeout(API_TIMEOUT):
-                response = await self._session.get(
-                    f"{API_BASE_URL}/api/Customer",
-                    headers={"Authorization": f"Bearer {self._token}"},
-                    params={"IncludeDisabledDevices": "true" if include_disabled_devices else "false"},
-                )
-
-                if response.status == 401:
-                    # Token might be expired, try to re-authenticate
-                    await self.authenticate()
-                    response = await self._session.get(
-                        f"{API_BASE_URL}/api/Customer",
-                        headers={"Authorization": f"Bearer {self._token}"},
-                        params={"IncludeDisabledDevices": "true" if include_disabled_devices else "false"},
-                    )
-
-                response.raise_for_status()
-                return await response.json()
-
-        except aiohttp.ClientError as err:
-            _LOGGER.error("Error fetching customer details: %s", err)
-            raise VejbyTisvildeVandApiError(f"Connection error: {err}") from err
+        return await self._request_get(
+            f"{API_BASE_URL}/api/Customer",
+            params={"IncludeDisabledDevices": "true" if include_disabled_devices else "false"},
+        )
 
     async def get_device_usage(
-        self, location_id: str, device_ids: list[str], start_date: datetime, end_date: datetime, interval: str = "Hourly"
+        self, location_id: str, device_ids: list[str], start_date, end_date, interval: str = "Hourly"
     ) -> dict[str, Any]:
         """Get device usage data for a period with specified interval granularity."""
-        if not self._token:
-            await self.authenticate()
+        start_utc = start_date.astimezone(timezone.utc)
+        end_utc = end_date.astimezone(timezone.utc)
+        return await self._request_post(
+            f"{API_BASE_URL}/api/Stats/usage/{location_id}/devices",
+            json={
+                "DeviceIds": device_ids,
+                "QuantityType": "WaterVolume",
+                "Unit": "KubicMeter",
+                "Interval": interval,
+                "From": start_utc.isoformat(),
+                "To": end_utc.isoformat(),
+            },
+        )
 
-        try:
-            async with async_timeout.timeout(API_TIMEOUT):
-                # Convert timezone-aware datetimes to UTC for the API
-                start_utc = start_date.astimezone(timezone.utc)
-                end_utc = end_date.astimezone(timezone.utc)
-
-                response = await self._session.post(
-                    f"{API_BASE_URL}/api/Stats/usage/{location_id}/devices",
-                    headers={"Authorization": f"Bearer {self._token}"},
-                    json={
-                        "DeviceIds": device_ids,
-                        "QuantityType": "WaterVolume",  # Singular!
-                        "Unit": "KubicMeter",
-                        "Interval": interval,
-                        "From": start_utc.isoformat(),
-                        "To": end_utc.isoformat(),
-                    },
-                )
-
-                if response.status == 401:
-                    # Token might be expired, try to re-authenticate
-                    await self.authenticate()
-                    response = await self._session.post(
-                        f"{API_BASE_URL}/api/Stats/usage/{location_id}/devices",
-                        headers={"Authorization": f"Bearer {self._token}"},
-                        json={
-                            "DeviceIds": device_ids,
-                            "QuantityType": "WaterVolume",  # Singular!
-                            "Unit": "KubicMeter",
-                            "Interval": interval,
-                            "From": start_utc.isoformat(),
-                            "To": end_utc.isoformat(),
-                        },
-                    )
-
-                response.raise_for_status()
-                return await response.json()
-
-        except aiohttp.ClientError as err:
-            _LOGGER.error("Error fetching device usage: %s", err)
-            raise VejbyTisvildeVandApiError(f"Connection error: {err}") from err
+    def _parse_total_usage(self, usage_data: dict[str, Any], device_ids: list[str]) -> dict[str, float]:
+        """Extract TotalUsage from an API response and assign it to the first device ID."""
+        if not isinstance(usage_data, dict) or not device_ids:
+            return {}
+        total = usage_data.get("TotalUsage", 0.0)
+        return {device_ids[0]: float(total) if total else 0.0}
 
     async def get_daily_usage(self, location_id: str, device_ids: list[str]) -> dict[str, float]:
-        """Get daily usage for devices (today's consumption in cubic meters)."""
-        # Get usage from start of today until now with hourly granularity (in local timezone)
-        now = datetime.now(self._timezone)
-        start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
-
-        usage_data = await self.get_device_usage(location_id, device_ids, start_of_day, now, interval="Hourly")
-
-        # The API returns a single response with TotalUsage field
-        # Response format: {"Unit": "KubicMeter", "QuantityType": "WaterVolume", "TotalUsage": 0.145, ...}
-        daily_usage = {}
-
-        if isinstance(usage_data, dict):
-            # The API appears to return data for a single device per call
-            # Use TotalUsage field from the response
-            total = usage_data.get("TotalUsage", 0.0)
-
-            # Assign this total to the first device ID (assuming single device response)
-            if device_ids:
-                daily_usage[device_ids[0]] = float(total) if total else 0.0
-
-        return daily_usage
+        """Get today's consumption from midnight until now."""
+        start, end = self._date_ranges.today_range()
+        usage_data = await self.get_device_usage(location_id, device_ids, start, end, interval="Hourly")
+        return self._parse_total_usage(usage_data, device_ids)
 
     async def get_yesterday_usage(self, location_id: str, device_ids: list[str]) -> dict[str, float]:
-        """Get yesterday's usage for devices (yesterday's consumption in cubic meters)."""
-        # Get usage for the entire previous day (in local timezone)
-        now = datetime.now(self._timezone)
-        yesterday = now - timedelta(days=1)
-        start_of_yesterday = yesterday.replace(hour=0, minute=0, second=0, microsecond=0)
-        end_of_yesterday = yesterday.replace(hour=23, minute=59, second=59, microsecond=999999)
-
-        usage_data = await self.get_device_usage(location_id, device_ids, start_of_yesterday, end_of_yesterday, interval="Hourly")
-
-        # The API returns a single response with TotalUsage field
-        yesterday_usage = {}
-
-        if isinstance(usage_data, dict):
-            total = usage_data.get("TotalUsage", 0.0)
-
-            # Assign this total to the first device ID (assuming single device response)
-            if device_ids:
-                yesterday_usage[device_ids[0]] = float(total) if total else 0.0
-
-        return yesterday_usage
+        """Get yesterday's total consumption."""
+        start, end = self._date_ranges.yesterday_range()
+        usage_data = await self.get_device_usage(location_id, device_ids, start, end, interval="Hourly")
+        return self._parse_total_usage(usage_data, device_ids)
 
     async def get_monthly_usage(self, location_id: str, device_ids: list[str]) -> dict[str, float]:
-        """Get monthly usage for devices (this month's consumption in cubic meters)."""
-        # Get usage from start of this month until now with daily granularity (more efficient, in local timezone)
-        now = datetime.now(self._timezone)
-        start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-
-        usage_data = await self.get_device_usage(location_id, device_ids, start_of_month, now, interval="Daily")
-
-        # The API returns a single response with TotalUsage field
-        monthly_usage = {}
-
-        if isinstance(usage_data, dict):
-            total = usage_data.get("TotalUsage", 0.0)
-
-            # Assign this total to the first device ID (assuming single device response)
-            if device_ids:
-                monthly_usage[device_ids[0]] = float(total) if total else 0.0
-
-        return monthly_usage
+        """Get month-to-date consumption."""
+        start, end = self._date_ranges.month_to_date_range()
+        usage_data = await self.get_device_usage(location_id, device_ids, start, end, interval="Daily")
+        return self._parse_total_usage(usage_data, device_ids)
 
     async def get_yearly_usage(self, location_id: str, device_ids: list[str]) -> dict[str, float]:
-        """Get yearly usage for devices (year-to-date consumption in cubic meters)."""
-        # Get usage from start of this year until now with monthly granularity (more efficient, in local timezone)
-        now = datetime.now(self._timezone)
-        start_of_year = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
-
-        usage_data = await self.get_device_usage(location_id, device_ids, start_of_year, now, interval="Monthly")
-
-        # The API returns a single response with TotalUsage field
-        yearly_usage = {}
-
-        if isinstance(usage_data, dict):
-            total = usage_data.get("TotalUsage", 0.0)
-
-            # Assign this total to the first device ID (assuming single device response)
-            if device_ids:
-                yearly_usage[device_ids[0]] = float(total) if total else 0.0
-
-        return yearly_usage
-
-    async def get_latest_readings(self, device_ids: list[str]) -> dict[str, Any]:
-        """Get the latest readings for devices."""
-        if not self._token:
-            await self.authenticate()
-
-        try:
-            async with async_timeout.timeout(API_TIMEOUT):
-                response = await self._session.post(
-                    f"{API_BASE_URL}/api/Stats/readings/devices",
-                    headers={"Authorization": f"Bearer {self._token}"},
-                    json={
-                        "DeviceIds": device_ids,
-                        "QuantityType": "WaterVolume",  # Singular!
-                        "Unit": "KubicMeter",
-                    },
-                )
-
-                if response.status == 401:
-                    # Token might be expired, try to re-authenticate
-                    await self.authenticate()
-                    response = await self._session.post(
-                        f"{API_BASE_URL}/api/Stats/readings/devices",
-                        headers={"Authorization": f"Bearer {self._token}"},
-                        json={
-                            "DeviceIds": device_ids,
-                            "QuantityType": "WaterVolume",  # Singular!
-                            "Unit": "KubicMeter",
-                        },
-                    )
-
-                response.raise_for_status()
-                return await response.json()
-
-        except aiohttp.ClientError as err:
-            _LOGGER.error("Error fetching latest readings: %s", err)
-            raise VejbyTisvildeVandApiError(f"Connection error: {err}") from err
+        """Get year-to-date consumption."""
+        start, end = self._date_ranges.year_to_date_range()
+        usage_data = await self.get_device_usage(location_id, device_ids, start, end, interval="Monthly")
+        return self._parse_total_usage(usage_data, device_ids)

@@ -4,16 +4,16 @@ This custom integration allows you to monitor your water consumption from Vejby 
 
 ## Features
 
-- **Daily Consumption Sensor**: Track your daily water usage in real-time
-- **Multiple Devices**: Support for multiple water meters/locations
-- **Automatic Updates**: Data refreshes every 30 minutes
-- **Easy Setup**: Simple configuration through Home Assistant UI
+- **4 sensors per water meter**: today, yesterday, month-to-date, year-to-date consumption
+- **Multiple locations**: supports multiple water meters/locations
+- **Automatic updates**: data refreshes every 30 minutes
+- **Easy setup**: configured through the Home Assistant UI
 
 ## Installation
 
 ### Manual Installation
 
-1. Copy the `custom_components/vejby_tisvilde_vand` folder to your Home Assistant `custom_components` directory
+1. Copy all files from the repo root into `<HA config dir>/custom_components/vejby_tisvilde_vand/`
 2. Restart Home Assistant
 3. Go to **Settings** → **Devices & Services**
 4. Click **Add Integration**
@@ -22,99 +22,52 @@ This custom integration allows you to monitor your water consumption from Vejby 
 ### HACS Installation (if published)
 
 1. Open HACS
-2. Go to Integrations
-3. Click the three dots in the top right
-4. Select "Custom repositories"
-5. Add the repository URL
-6. Install "Vejby Tisvilde Vand"
-7. Restart Home Assistant
+2. Go to Integrations → three dots → Custom repositories
+3. Add the repository URL
+4. Install "Vejby Tisvilde Vand"
+5. Restart Home Assistant
 
 ## Configuration
 
-1. After installation, add the integration through the UI
-2. Enter your Vejby Tisvilde Vand customer portal credentials:
-   - **Email**: Your login email
-   - **Password**: Your password
-3. Click Submit
-
-The integration will automatically discover your devices and create sensors for each water meter.
+After installation, add the integration through the UI and enter your Vejby Tisvilde Vand customer portal credentials (email and password). The integration will automatically discover your devices and create sensors for each water meter.
 
 ## Sensors
 
-The integration creates four sensors for each water meter:
+Four sensors are created per water meter:
 
-### Daily Consumption Sensor
+| Sensor | Unique ID suffix | State Class | Description |
+|---|---|---|---|
+| Latest Consumption | `daily_consumption` | `total_increasing` | Midnight → now (today) |
+| Daily Consumption | `yesterday_consumption` | `measurement` | Full previous day |
+| Monthly Consumption | `monthly_consumption` | `measurement` | 1st of month → now |
+| Yearly Consumption | `yearly_consumption` | `measurement` | Jan 1st → now |
 
-- **Entity ID**: `sensor.{location}_{device}_daily_consumption`
-- **Unit**: Cubic meters (m³)
-- **Device Class**: Water
-- **State Class**: Total Increasing
-- **Update Interval**: 30 minutes
+All sensors use **cubic meters (m³)** and device class **Water**.
 
-Shows water consumption from midnight (00:00) until the current time.
-
-**Example**: `0.145` means 0.145 m³ (145 liters) consumed today.
-
-### Yesterday Consumption Sensor
-
-- **Entity ID**: `sensor.{location}_{device}_yesterday_consumption`
-- **Unit**: Cubic meters (m³)
-- **Device Class**: Water
-- **State Class**: Total Increasing
-- **Update Interval**: 30 minutes
-
-Shows water consumption for the entire previous day (yesterday 00:00 to 23:59).
-
-**Example**: `0.312` means 0.312 m³ (312 liters) consumed yesterday.
-
-### Monthly Consumption Sensor
-
-- **Entity ID**: `sensor.{location}_{device}_monthly_consumption`
-- **Unit**: Cubic meters (m³)
-- **Device Class**: Water
-- **State Class**: Total Increasing
-- **Update Interval**: 30 minutes
-
-Shows water consumption from the 1st of the current month until now.
-
-**Example**: `3.456` means 3.456 m³ (3,456 liters) consumed this month.
-
-### Yearly Consumption Sensor (Year-to-Date)
-
-- **Entity ID**: `sensor.{location}_{device}_yearly_consumption`
-- **Unit**: Cubic meters (m³)
-- **Device Class**: Water
-- **State Class**: Total Increasing
-- **Update Interval**: 30 minutes
-
-Shows water consumption from January 1st until now.
-
-**Example**: `42.789` means 42.789 m³ (42,789 liters) consumed this year.
-
-**Common Attributes** (all sensors):
-- `device_id`: The unique device identifier
-- `location`: Location name
-- `device_type`: Type of water meter
+**Common attributes** (all sensors):
+- `device_id`: unique device identifier
+- `location`: location/address name
+- `device_type`: type of water meter
 
 ## Example Usage
 
-### Display Daily Consumption
+### Display today's consumption
 
 ```yaml
 type: entity
-entity: sensor.your_location_water_meter_daily_consumption
+entity: sensor.your_location_water_meter_latest_consumption
 name: Today's Water Usage
 icon: mdi:water
 ```
 
-### Create Automation for High Usage
+### Alert on high daily usage
 
 ```yaml
 automation:
   - alias: "High Water Usage Alert"
     trigger:
       - platform: numeric_state
-        entity_id: sensor.your_location_water_meter_daily_consumption
+        entity_id: sensor.your_location_water_meter_latest_consumption
         above: 1.0  # 1 cubic meter
     action:
       - service: notify.mobile_app
@@ -122,60 +75,64 @@ automation:
           message: "High water usage detected today!"
 ```
 
-### Track Weekly Consumption with Utility Meter
+### Track weekly consumption with Utility Meter
 
 ```yaml
 utility_meter:
   weekly_water_consumption:
-    source: sensor.your_location_water_meter_daily_consumption
+    source: sensor.your_location_water_meter_latest_consumption
     cycle: weekly
 ```
 
 ## Troubleshooting
 
-### Authentication Errors
+**Authentication errors**: verify credentials at https://vejbytisvildevand.bdforsyning.dk. The integration will prompt for re-authentication if the token expires.
 
-If you receive authentication errors:
-1. Verify your credentials are correct
-2. Check that you can log in to the customer portal at https://vejbytisvildevand.bdforsyning.dk
-3. The integration will prompt for re-authentication if credentials expire
+**No sensors after setup**: check that you have active water meters in the customer portal, and review Home Assistant logs for errors.
 
-### No Devices Found
-
-If no sensors appear after setup:
-1. Ensure you have active water meters registered in your customer portal
-2. Check Home Assistant logs for any error messages
-3. Try reloading the integration
-
-### Data Not Updating
-
-If sensor data isn't updating:
-1. Check your internet connection
-2. Verify the API is accessible
-3. Check Home Assistant logs for connection errors
-4. The integration updates every 30 minutes by default
+**Data not updating**: the integration polls every 30 minutes. Check logs for connection errors.
 
 ## API Information
 
-This integration uses the Vejby Tisvilde Vand Customer Portal API:
 - **Base URL**: `https://vejbytisvildevand.bdforsyning.dk`
-- **Authentication**: Token-based (Bearer)
-- **Update Frequency**: 30 minutes (configurable in code)
+- **Authentication**: Bearer token (auto-refreshed)
+- **Update interval**: 30 minutes
+
+## Development
+
+### Architecture
+
+- `api.py` — `VejbyTisvildeVandApi`: async HTTP client, injectable `HttpClient` and `DateRangeProvider`
+- `http_client.py` — `HttpClient` protocol + `AioHttpClient` implementation
+- `date_ranges.py` — `DateRangeProvider` protocol + `TimezoneAwareDateRangeProvider`
+- `models.py` — `Device` and `CoordinatorData` dataclasses
+- `__init__.py` — coordinator, wires everything together
+- `sensor.py` — four `CoordinatorEntity` sensor subclasses
+- `config_flow.py` — UI config flow with reauth support
+
+### Running tests
+
+```bash
+# Create venv and install test dependencies (first time only)
+python3 -m venv .venv
+.venv/bin/pip install -r requirements-test.txt
+
+# Run mocked unit tests (no credentials needed)
+cd tests && ../.venv/bin/pytest -v -k "not live"
+
+# Run functional tests against the real API
+cp .env.example .env          # then fill in your credentials
+cd tests && ../.venv/bin/pytest test_live_api.py -v
+```
+
+> **Note:** `pytest` must be run from the `tests/` directory. Running it from the repo root will fail because the repo root is also the integration package (`__init__.py` is there), which conflicts with pytest's package import machinery.
 
 ## Privacy & Security
 
-- Your credentials are stored securely in Home Assistant's configuration
-- All communication with the API uses HTTPS
+- Credentials are stored securely in Home Assistant's configuration store
+- All API communication uses HTTPS
 - No data is sent to third parties
-
-## Support
-
-For issues, questions, or feature requests, please open an issue on GitHub.
-
-## Credits
-
-Developed for the Home Assistant community to integrate with Vejby Tisvilde Vand's water monitoring system.
 
 ## License
 
-MIT License - See LICENSE file for details
+MIT License — see LICENSE file for details
