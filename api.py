@@ -82,7 +82,7 @@ class VejbyTisvildeVandApi:
             raise VejbyTisvildeVandApiError(f"Connection error: {err}") from err
 
     async def get_device_usage(
-        self, device_ids: list[str], start_date: datetime, end_date: datetime, interval: str = "Hourly"
+        self, location_id: str, device_ids: list[str], start_date: datetime, end_date: datetime, interval: str = "Hourly"
     ) -> dict[str, Any]:
         """Get device usage data for a period with specified interval granularity."""
         if not self._token:
@@ -95,7 +95,7 @@ class VejbyTisvildeVandApi:
                 end_utc = end_date.astimezone(timezone.utc)
 
                 response = await self._session.post(
-                    f"{API_BASE_URL}/api/Stats/usage/devices",
+                    f"{API_BASE_URL}/api/Stats/usage/{location_id}/devices",
                     headers={"Authorization": f"Bearer {self._token}"},
                     json={
                         "DeviceIds": device_ids,
@@ -111,7 +111,7 @@ class VejbyTisvildeVandApi:
                     # Token might be expired, try to re-authenticate
                     await self.authenticate()
                     response = await self._session.post(
-                        f"{API_BASE_URL}/api/Stats/usage/devices",
+                        f"{API_BASE_URL}/api/Stats/usage/{location_id}/devices",
                         headers={"Authorization": f"Bearer {self._token}"},
                         json={
                             "DeviceIds": device_ids,
@@ -130,13 +130,13 @@ class VejbyTisvildeVandApi:
             _LOGGER.error("Error fetching device usage: %s", err)
             raise VejbyTisvildeVandApiError(f"Connection error: {err}") from err
 
-    async def get_daily_usage(self, device_ids: list[str]) -> dict[str, float]:
+    async def get_daily_usage(self, location_id: str, device_ids: list[str]) -> dict[str, float]:
         """Get daily usage for devices (today's consumption in cubic meters)."""
         # Get usage from start of today until now with hourly granularity (in local timezone)
         now = datetime.now(self._timezone)
         start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
-        usage_data = await self.get_device_usage(device_ids, start_of_day, now, interval="Hourly")
+        usage_data = await self.get_device_usage(location_id, device_ids, start_of_day, now, interval="Hourly")
 
         # The API returns a single response with TotalUsage field
         # Response format: {"Unit": "KubicMeter", "QuantityType": "WaterVolume", "TotalUsage": 0.145, ...}
@@ -153,7 +153,7 @@ class VejbyTisvildeVandApi:
 
         return daily_usage
 
-    async def get_yesterday_usage(self, device_ids: list[str]) -> dict[str, float]:
+    async def get_yesterday_usage(self, location_id: str, device_ids: list[str]) -> dict[str, float]:
         """Get yesterday's usage for devices (yesterday's consumption in cubic meters)."""
         # Get usage for the entire previous day (in local timezone)
         now = datetime.now(self._timezone)
@@ -161,7 +161,7 @@ class VejbyTisvildeVandApi:
         start_of_yesterday = yesterday.replace(hour=0, minute=0, second=0, microsecond=0)
         end_of_yesterday = yesterday.replace(hour=23, minute=59, second=59, microsecond=999999)
 
-        usage_data = await self.get_device_usage(device_ids, start_of_yesterday, end_of_yesterday, interval="Hourly")
+        usage_data = await self.get_device_usage(location_id, device_ids, start_of_yesterday, end_of_yesterday, interval="Hourly")
 
         # The API returns a single response with TotalUsage field
         yesterday_usage = {}
@@ -175,13 +175,13 @@ class VejbyTisvildeVandApi:
 
         return yesterday_usage
 
-    async def get_monthly_usage(self, device_ids: list[str]) -> dict[str, float]:
+    async def get_monthly_usage(self, location_id: str, device_ids: list[str]) -> dict[str, float]:
         """Get monthly usage for devices (this month's consumption in cubic meters)."""
         # Get usage from start of this month until now with daily granularity (more efficient, in local timezone)
         now = datetime.now(self._timezone)
         start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
-        usage_data = await self.get_device_usage(device_ids, start_of_month, now, interval="Daily")
+        usage_data = await self.get_device_usage(location_id, device_ids, start_of_month, now, interval="Daily")
 
         # The API returns a single response with TotalUsage field
         monthly_usage = {}
@@ -195,13 +195,13 @@ class VejbyTisvildeVandApi:
 
         return monthly_usage
 
-    async def get_yearly_usage(self, device_ids: list[str]) -> dict[str, float]:
+    async def get_yearly_usage(self, location_id: str, device_ids: list[str]) -> dict[str, float]:
         """Get yearly usage for devices (year-to-date consumption in cubic meters)."""
         # Get usage from start of this year until now with monthly granularity (more efficient, in local timezone)
         now = datetime.now(self._timezone)
         start_of_year = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
 
-        usage_data = await self.get_device_usage(device_ids, start_of_year, now, interval="Monthly")
+        usage_data = await self.get_device_usage(location_id, device_ids, start_of_year, now, interval="Monthly")
 
         # The API returns a single response with TotalUsage field
         yearly_usage = {}

@@ -90,12 +90,14 @@ class VejbyTisvildeVandDataUpdateCoordinator(DataUpdateCoordinator):
             locations = self.customer_data.get("Locations", [])
 
             for location in locations:
+                location_id = location.get("LocationId")
                 location_devices = location.get("Devices", [])
                 for device in location_devices:
                     device_id = device.get("Id")
                     if device_id:
                         devices.append({
                             "id": device_id,
+                            "location_id": location_id,
                             "location_name": location.get("Address", "Unknown Address"),
                             "type": device.get("DeviceType", "WaterMeter"),
                         })
@@ -106,11 +108,21 @@ class VejbyTisvildeVandDataUpdateCoordinator(DataUpdateCoordinator):
                 _LOGGER.warning("No devices found for customer")
                 return {"devices": [], "daily_usage": {}}
 
-            # Get usage data for all devices
-            daily_usage = await self.api.get_daily_usage(self.device_ids)
-            yesterday_usage = await self.api.get_yesterday_usage(self.device_ids)
-            monthly_usage = await self.api.get_monthly_usage(self.device_ids)
-            yearly_usage = await self.api.get_yearly_usage(self.device_ids)
+            # Group devices by location and fetch usage per location
+            devices_by_location: dict[str, list[str]] = {}
+            for device in devices:
+                loc_id = device["location_id"]
+                devices_by_location.setdefault(loc_id, []).append(device["id"])
+
+            daily_usage: dict[str, float] = {}
+            yesterday_usage: dict[str, float] = {}
+            monthly_usage: dict[str, float] = {}
+            yearly_usage: dict[str, float] = {}
+            for loc_id, loc_device_ids in devices_by_location.items():
+                daily_usage.update(await self.api.get_daily_usage(loc_id, loc_device_ids))
+                yesterday_usage.update(await self.api.get_yesterday_usage(loc_id, loc_device_ids))
+                monthly_usage.update(await self.api.get_monthly_usage(loc_id, loc_device_ids))
+                yearly_usage.update(await self.api.get_yearly_usage(loc_id, loc_device_ids))
 
             # Note: We skip get_latest_readings() as it's not needed for consumption sensors
             # and may require different parameters than the usage endpoint
