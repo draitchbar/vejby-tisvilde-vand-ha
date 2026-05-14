@@ -17,7 +17,7 @@ class CoordinatorData:
     """Data returned by the coordinator on each poll."""
 
     devices: list[Device] = field(default_factory=list)
+    latest_usage: dict[str, float] = field(default_factory=dict)
     daily_usage: dict[str, float] = field(default_factory=dict)
-    yesterday_usage: dict[str, float] = field(default_factory=dict)
     monthly_usage: dict[str, float] = field(default_factory=dict)
     yearly_usage: dict[str, float] = field(default_factory=dict)

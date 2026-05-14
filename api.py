@@ -116,13 +116,13 @@ class VejbyTisvildeVandApi:
         total = usage_data.get("TotalUsage", 0.0)
         return {device_ids[0]: float(total) if total else 0.0}
 
-    async def get_daily_usage(self, location_id: str, device_ids: list[str]) -> dict[str, float]:
+    async def get_latest_usage(self, location_id: str, device_ids: list[str]) -> dict[str, float]:
         """Get today's consumption from midnight until now."""
         start, end = self._date_ranges.today_range()
         usage_data = await self.get_device_usage(location_id, device_ids, start, end, interval="Hourly")
         return self._parse_total_usage(usage_data, device_ids)
 
-    async def get_yesterday_usage(self, location_id: str, device_ids: list[str]) -> dict[str, float]:
+    async def get_daily_usage(self, location_id: str, device_ids: list[str]) -> dict[str, float]:
         """Get yesterday's total consumption."""
         start, end = self._date_ranges.yesterday_range()
         usage_data = await self.get_device_usage(location_id, device_ids, start, end, interval="Hourly")

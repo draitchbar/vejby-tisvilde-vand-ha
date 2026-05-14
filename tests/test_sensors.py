@@ -35,7 +35,7 @@ def _make_device(device_id="dev-1"):
 
 def test_latest_consumption_native_value():
     device = _make_device()
-    data = CoordinatorData(daily_usage={"dev-1": 1.5})
+    data = CoordinatorData(latest_usage={"dev-1": 1.5})
     coord = _make_coordinator(data)
     s = _make_sensor(sensor_module.VejbyTisvildeVandLatestConsumptionSensor, device, coord)
     assert s.native_value == 1.5
@@ -43,7 +43,7 @@ def test_latest_consumption_native_value():
 
 def test_daily_consumption_native_value():
     device = _make_device()
-    data = CoordinatorData(yesterday_usage={"dev-1": 3.0})
+    data = CoordinatorData(daily_usage={"dev-1": 3.0})
     coord = _make_coordinator(data)
     s = _make_sensor(sensor_module.VejbyTisvildeVandDailyConsumptionSensor, device, coord)
     assert s.native_value == 3.0
@@ -58,7 +58,7 @@ def test_native_value_none_when_no_data():
 
 def test_native_value_none_when_device_missing_from_usage():
     device = _make_device("dev-99")
-    data = CoordinatorData(daily_usage={"dev-1": 1.0})
+    data = CoordinatorData(latest_usage={"dev-1": 1.0})
     coord = _make_coordinator(data)
     s = _make_sensor(sensor_module.VejbyTisvildeVandLatestConsumptionSensor, device, coord)
     assert s.native_value is None

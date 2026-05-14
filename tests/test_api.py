@@ -99,20 +99,20 @@ def test_parse_total_usage_empty_device_ids():
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
-async def test_get_daily_usage_uses_today_range():
+async def test_get_latest_usage_uses_today_range():
     http = MockHttpClient()
     http.post.side_effect = [{"AuthToken": "tok"}, SAMPLE_USAGE_RESPONSE]
     api = make_api(http)
-    result = await api.get_daily_usage("loc-1", ["dev-1"])
+    result = await api.get_latest_usage("loc-1", ["dev-1"])
     assert result == {"dev-1": 2.5}
 
 
 @pytest.mark.asyncio
-async def test_get_yesterday_usage():
+async def test_get_daily_usage():
     http = MockHttpClient()
     http.post.side_effect = [{"AuthToken": "tok"}, SAMPLE_USAGE_RESPONSE]
     api = make_api(http)
-    result = await api.get_yesterday_usage("loc-1", ["dev-1"])
+    result = await api.get_daily_usage("loc-1", ["dev-1"])
     assert result == {"dev-1": 2.5}
 
 

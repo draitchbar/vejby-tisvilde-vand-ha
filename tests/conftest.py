@@ -55,6 +55,16 @@ for mod, stub in [
 ]:
     sys.modules.setdefault(mod, stub)
 
+_dt_util_stub = types.ModuleType("homeassistant.util.dt")
+_dt_util_stub.now = MagicMock()
+_dt_util_stub.start_of_local_day = MagicMock()
+
+_util_stub = types.ModuleType("homeassistant.util")
+_util_stub.dt = _dt_util_stub
+
+sys.modules.setdefault("homeassistant.util", _util_stub)
+sys.modules.setdefault("homeassistant.util.dt", _dt_util_stub)
+
 for mod in [
     "homeassistant",
     "homeassistant.helpers",

@@ -101,21 +101,21 @@ class VejbyTisvildeVandDataUpdateCoordinator(DataUpdateCoordinator[CoordinatorDa
             for device in devices:
                 devices_by_location.setdefault(device.location_id, []).append(device.id)
 
+            latest_usage: dict[str, float] = {}
             daily_usage: dict[str, float] = {}
-            yesterday_usage: dict[str, float] = {}
             monthly_usage: dict[str, float] = {}
             yearly_usage: dict[str, float] = {}
 
             for loc_id, loc_device_ids in devices_by_location.items():
+                latest_usage.update(await self.api.get_latest_usage(loc_id, loc_device_ids))
                 daily_usage.update(await self.api.get_daily_usage(loc_id, loc_device_ids))
-                yesterday_usage.update(await self.api.get_yesterday_usage(loc_id, loc_device_ids))
                 monthly_usage.update(await self.api.get_monthly_usage(loc_id, loc_device_ids))
                 yearly_usage.update(await self.api.get_yearly_usage(loc_id, loc_device_ids))
 
             return CoordinatorData(
                 devices=devices,
+                latest_usage=latest_usage,
                 daily_usage=daily_usage,
-                yesterday_usage=yesterday_usage,
                 monthly_usage=monthly_usage,
                 yearly_usage=yearly_usage,
             )

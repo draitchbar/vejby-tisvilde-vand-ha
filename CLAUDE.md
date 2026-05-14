@@ -16,9 +16,9 @@ There are no automated tests. Manual testing requires a live Home Assistant inst
 
 The integration follows the standard HA coordinator pattern:
 
-- **`__init__.py`** — Entry point. Sets up `VejbyTisvildeVandDataUpdateCoordinator`, which fetches all usage data (daily, yesterday, monthly, yearly) for all devices on each 30-minute poll. Passes timezone from HA config to the API client.
+- **`__init__.py`** — Entry point. Sets up `VejbyTisvildeVandDataUpdateCoordinator`, which fetches all usage data (latest, daily, monthly, yearly) for all devices on each 30-minute poll. Passes timezone from HA config to the API client.
 - **`api.py`** — `VejbyTisvildeVandApi`: async HTTP client using `aiohttp`. Handles token-based auth (Bearer), auto-reauthenticates on 401. All date ranges are computed in the local timezone (via `ZoneInfo`) then converted to UTC before sending to the API.
-- **`sensor.py`** — Creates 4 `CoordinatorEntity` sensor subclasses per device: daily, yesterday, monthly, yearly consumption. All read from `coordinator.data` dict.
+- **`sensor.py`** — Creates 4 `CoordinatorEntity` sensor subclasses per device: latest (today so far, `MEASUREMENT`), daily (yesterday's total, `TOTAL` with `last_reset` = midnight today), monthly (`TOTAL` with `last_reset` = 1st of month), yearly (`TOTAL` with `last_reset` = Jan 1st). All read from `coordinator.data`.
 - **`config_flow.py`** — UI config flow with reauth support. Validates credentials on setup.
 - **`const.py`** — Central place for `DOMAIN`, `API_BASE_URL`, `API_TIMEOUT`, `UPDATE_INTERVAL`.
 

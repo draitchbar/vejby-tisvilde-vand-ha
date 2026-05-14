@@ -23,8 +23,8 @@ def _make_coordinator(api):
 def _make_api():
     api = MagicMock(spec=VejbyTisvildeVandApi)
     api.get_customer_details = AsyncMock(return_value=SAMPLE_CUSTOMER_DATA)
-    api.get_daily_usage = AsyncMock(return_value={"dev-1": 1.0})
-    api.get_yesterday_usage = AsyncMock(return_value={"dev-1": 0.5})
+    api.get_latest_usage = AsyncMock(return_value={"dev-1": 1.0})
+    api.get_daily_usage = AsyncMock(return_value={"dev-1": 0.5})
     api.get_monthly_usage = AsyncMock(return_value={"dev-1": 10.0})
     api.get_yearly_usage = AsyncMock(return_value={"dev-1": 100.0})
     return api
@@ -41,8 +41,8 @@ async def test_async_update_data_returns_coordinator_data():
     assert result.devices[0].id == "dev-1"
     assert result.devices[0].location_id == "loc-1"
     assert result.devices[0].location_name == "Testvej 1"
-    assert result.daily_usage == {"dev-1": 1.0}
-    assert result.yesterday_usage == {"dev-1": 0.5}
+    assert result.latest_usage == {"dev-1": 1.0}
+    assert result.daily_usage == {"dev-1": 0.5}
     assert result.monthly_usage == {"dev-1": 10.0}
     assert result.yearly_usage == {"dev-1": 100.0}
 
@@ -64,8 +64,8 @@ async def test_async_update_data_groups_devices_by_location():
     }
     api = _make_api()
     api.get_customer_details = AsyncMock(return_value=multi_customer)
-    api.get_daily_usage = AsyncMock(return_value={"dev-1": 1.0})
-    api.get_yesterday_usage = AsyncMock(return_value={"dev-1": 0.5})
+    api.get_latest_usage = AsyncMock(return_value={"dev-1": 1.0})
+    api.get_daily_usage = AsyncMock(return_value={"dev-1": 0.5})
     api.get_monthly_usage = AsyncMock(return_value={"dev-1": 10.0})
     api.get_yearly_usage = AsyncMock(return_value={"dev-1": 100.0})
 
@@ -85,7 +85,7 @@ async def test_async_update_data_no_devices_returns_empty():
 
     assert isinstance(result, CoordinatorData)
     assert result.devices == []
-    assert result.daily_usage == {}
+    assert result.latest_usage == {}
 
 
 def test_parse_devices_extracts_correctly():

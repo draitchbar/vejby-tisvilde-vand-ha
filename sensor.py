@@ -1,5 +1,6 @@
 """Sensor platform for Vejby Tisvilde Vand integration."""
 import logging
+from datetime import datetime
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -11,6 +12,7 @@ from homeassistant.const import UnitOfVolume
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import dt as dt_util
 
 from . import VejbyTisvildeVandDataUpdateCoordinator
 from .const import DOMAIN
@@ -94,34 +96,48 @@ class VejbyTisvildeVandConsumptionSensor(
 class VejbyTisvildeVandLatestConsumptionSensor(VejbyTisvildeVandConsumptionSensor):
     """Today's consumption from midnight until now."""
 
-    _attr_state_class = SensorStateClass.TOTAL_INCREASING
-    _usage_attr = "daily_usage"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _usage_attr = "latest_usage"
     _name_suffix = "Latest Consumption"
-    _unique_id_suffix = "daily_consumption"
+    _unique_id_suffix = "latest_consumption"
 
 
 class VejbyTisvildeVandDailyConsumptionSensor(VejbyTisvildeVandConsumptionSensor):
     """Yesterday's total consumption."""
 
-    _attr_state_class = SensorStateClass.MEASUREMENT
-    _usage_attr = "yesterday_usage"
+    _attr_state_class = SensorStateClass.TOTAL
+    _usage_attr = "daily_usage"
     _name_suffix = "Daily Consumption"
-    _unique_id_suffix = "yesterday_consumption"
+    _unique_id_suffix = "daily_consumption"
+
+    @property
+    def last_reset(self) -> datetime:
+        return dt_util.start_of_local_day()
 
 
 class VejbyTisvildeVandMonthlyConsumptionSensor(VejbyTisvildeVandConsumptionSensor):
     """Month-to-date consumption."""
 
-    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_state_class = SensorStateClass.TOTAL
     _usage_attr = "monthly_usage"
     _name_suffix = "Monthly Consumption"
     _unique_id_suffix = "monthly_consumption"
+
+    @property
+    def last_reset(self) -> datetime:
+        now = dt_util.now()
+        return now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
 
 class VejbyTisvildeVandYearlyConsumptionSensor(VejbyTisvildeVandConsumptionSensor):
     """Year-to-date consumption."""
 
-    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_state_class = SensorStateClass.TOTAL
     _usage_attr = "yearly_usage"
     _name_suffix = "Yearly Consumption"
     _unique_id_suffix = "yearly_consumption"
+
+    @property
+    def last_reset(self) -> datetime:
+        now = dt_util.now()
+        return now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)

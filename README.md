@@ -4,7 +4,7 @@ This custom integration allows you to monitor your water consumption from Vejby 
 
 ## Features
 
-- **4 sensors per water meter**: today, yesterday, month-to-date, year-to-date consumption
+- **4 sensors per water meter**: latest (today so far), daily (yesterday), month-to-date, year-to-date consumption
 - **Multiple locations**: supports multiple water meters/locations
 - **Automatic updates**: data refreshes every 30 minutes
 - **Easy setup**: configured through the Home Assistant UI
@@ -37,10 +37,10 @@ Four sensors are created per water meter:
 
 | Sensor | Unique ID suffix | State Class | Description |
 |---|---|---|---|
-| Latest Consumption | `daily_consumption` | `total_increasing` | Midnight → now (today) |
-| Daily Consumption | `yesterday_consumption` | `measurement` | Full previous day |
-| Monthly Consumption | `monthly_consumption` | `measurement` | 1st of month → now |
-| Yearly Consumption | `yearly_consumption` | `measurement` | Jan 1st → now |
+| Latest Consumption | `latest_consumption` | `measurement` | Midnight → now (today) |
+| Daily Consumption | `daily_consumption` | `total` (`last_reset` = midnight today) | Full previous day |
+| Monthly Consumption | `monthly_consumption` | `total` (`last_reset` = 1st of month) | 1st of month → now |
+| Yearly Consumption | `yearly_consumption` | `total` (`last_reset` = Jan 1st) | Jan 1st → now |
 
 All sensors use **cubic meters (m³)** and device class **Water**.
 
