@@ -1,6 +1,6 @@
 """Sensor platform for Vejby Tisvilde Vand integration."""
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -112,7 +112,7 @@ class VejbyTisvildeVandDailyConsumptionSensor(VejbyTisvildeVandConsumptionSensor
 
     @property
     def last_reset(self) -> datetime:
-        return dt_util.start_of_local_day()
+        return dt_util.start_of_local_day() - timedelta(days=1)
 
 
 class VejbyTisvildeVandMonthlyConsumptionSensor(VejbyTisvildeVandConsumptionSensor):
